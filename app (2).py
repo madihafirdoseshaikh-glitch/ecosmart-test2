@@ -837,6 +837,10 @@ def build_knowledge():
     add(["qr", "scan", "phone", "mobile", "link", "share", "url", "website"],
         "The QR code on the team's roll-up opens this same dashboard on any phone or laptop, no app needed. "
         "Share the link and others can try it too.", w=2)
+    add(["drag", "move you", "move sprig", "move the mascot", "in the way", "blocking", "covering", "reposition",
+         "hide you", "hidden behind", "corner"],
+        "You can drag me anywhere! 🖱️ Press and hold on me (or on the top bar of the chat) and move. I remember "
+        "where you put me. If I'm in the way, just drag me to a corner.", w=3)
     add(["bug", "error", "broken", "problem", "not working", "slow", "crash", "stuck", "wrong", "issue"],
         "Sorry about that! 🙏 Try reloading the page. If an input looks stuck, press ↺ Reset this idea's inputs in the "
         "left panel. If it keeps happening, let the team know.", w=2)
@@ -855,4 +859,4 @@ st.markdown(team_footer_html(), unsafe_allow_html=True)
 if st.session_state["sprig_on"]:
     sprig.sprig(**SPRIG, knowledge=build_knowledge(), chips=build_chips(),
                 greeting="Hi, I'm **Sprig**! 🌱 Ask me anything about this dashboard, or tap a button below. "
-                         "I can even dance 💃")
+                         "I can even dance 💃 (And you can drag me anywhere!)")
