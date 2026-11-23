@@ -25,7 +25,7 @@ MOODS = ("happy", "excited", "worried", "sleepy")
 
 # The floating box starts small; the script inside resizes it when the chat opens.
 FLOAT_CSS = """<style>
-.st-key-sprig {position: fixed; right: 12px; bottom: 6px; width: 292px; z-index: 9999;}
+.st-key-sprig {position: fixed; right: 12px; bottom: 60px; width: 292px; z-index: 9999;}
 .st-key-sprig iframe {border: 0; background: transparent;}
 </style>"""
 
@@ -69,8 +69,8 @@ html,body{margin:0;height:100%;background:transparent;font-family:'Nunito','Sego
 #bubble .ask{display:block;margin-top:3px;color:#13A08A;font-weight:800;font-size:11.5px}
 #bubble.hide{opacity:0;transform:scale(.9);pointer-events:none}
 #bubble:after{content:"";position:absolute;right:-9px;bottom:14px;border:8px solid transparent;border-left-color:#D7EFE9;border-right:0}
-#cw{position:relative;width:76px;height:89px;flex:0 0 auto}
-#char{width:76px;height:89px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;
+#cw{position:relative;width:76px;height:89px;flex:0 0 auto;touch-action:none}
+#char{width:76px;height:89px;cursor:grab;user-select:none;-webkit-tap-highlight-color:transparent;
  transform-origin:50% 100%;animation:breathe 3.2s ease-in-out infinite}
 #char svg{width:100%;height:100%;overflow:visible;display:block}
 #badge{position:absolute;left:-8px;top:4px;width:24px;height:24px;border-radius:50%;background:#13A08A;color:#fff;
@@ -132,10 +132,10 @@ html,body{margin:0;height:100%;background:transparent;font-family:'Nunito','Sego
 
 /* ---- chat panel ---- */
 #panel{display:none;flex-direction:column;width:100%;flex:1 1 auto;min-height:0;background:#fff;border:2px solid #D7EFE9;
- border-radius:18px;box-shadow:0 8px 28px rgba(11,27,63,.22);overflow:hidden}
+ border-radius:18px;box-shadow:0 3px 10px rgba(11,27,63,.2);overflow:hidden}
 body.open #panel{display:flex}
 body.open #bubble{display:none}
-#phead{display:flex;align-items:center;justify-content:space-between;background:linear-gradient(120deg,#D8F3EA,#fff);
+#phead{cursor:grab;touch-action:none;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(120deg,#D8F3EA,#fff);
  padding:8px 12px;font-weight:800;color:#0B1B3F;font-size:14px;border-bottom:1px solid #E1F1EC}
 #phead small{font-weight:600;color:#5B6B8C;font-size:11px;margin-left:6px}
 #pclose{border:0;background:transparent;font-size:17px;line-height:1;cursor:pointer;color:#0B1B3F;padding:2px 6px;border-radius:8px}
@@ -156,6 +156,7 @@ body.open #bubble{display:none}
  font-family:inherit;outline:none;color:#0B1B3F;background:#fff}
 #q:focus{border-color:#13A08A}
 #send{border:0;background:#13A08A;color:#fff;border-radius:50%;width:34px;height:34px;font-size:15px;cursor:pointer;flex:0 0 auto}
+body.dragging,body.dragging *{cursor:grabbing !important}
 @media (pointer:coarse){#q{font-size:16px}}
 @media (prefers-reduced-motion:reduce){#char,.leaf,#badge{animation:none}}
 </style></head><body>
@@ -168,7 +169,7 @@ body.open #bubble{display:none}
  </div>
  <div id="row">
   <div id="bubble" role="status"></div>
-  <div id="cw"><div id="char" title="Click me to ask a question!">__SVG__</div><div id="badge" title="Ask me!">&#128172;</div></div>
+  <div id="cw"><div id="char" title="Click to chat. Drag to move me!">__SVG__</div><div id="badge" title="Ask me!">&#128172;</div></div>
  </div>
 </div>
 <script>
@@ -184,23 +185,37 @@ let store = {open: false, msgs: [], seen: false};
 try { const raw = window.parent.sessionStorage.getItem('sprigState'); if (raw) store = Object.assign(store, JSON.parse(raw)); } catch (_) {}
 function save() { try { window.parent.sessionStorage.setItem('sprigState', JSON.stringify(store)); } catch (_) {} }
 
-/* ---------- resize the floating box (small, bubble-only, or chat) ---------- */
+/* ---------- place and resize the floating box (small, bubble-only, or chat) ---------- */
+const DEF = {r: 12, b: 60};
+let pos = null;
+try { pos = JSON.parse(window.parent.localStorage.getItem('sprigPos')); } catch (_) {}
+if (!pos || typeof pos.r !== 'number' || typeof pos.b !== 'number') pos = null;
 function layout() {
   try {
     const fe = window.frameElement; if (!fe) return;
-    const P = window.parent, vw = P.innerWidth, vh = P.innerHeight;
+    const P = window.parent, de = P.document.documentElement, vw = de.clientWidth, vh = de.clientHeight;
     let w, h;
     if (isOpen) { w = Math.min(340, vw - 16); h = Math.min(500, vh - 16); }
     else if (bubbleOn) { w = Math.min(292, vw - 16); h = 136; }
     else { w = 96; h = 104; }
     const box = fe.closest('.st-key-sprig');
-    if (box) { box.style.width = w + 'px'; box.style.height = h + 'px'; }
+    if (box) {
+      const p = pos || DEF;
+      box.style.width = w + 'px'; box.style.height = h + 'px';
+      box.style.right = Math.max(6, Math.min(p.r, vw - w - 6)) + 'px';
+      box.style.bottom = Math.max(6, Math.min(p.b, vh - h - 6)) + 'px';
+    }
     for (let n = fe.parentElement; n && n !== box && n !== P.document.body; n = n.parentElement) {
       n.style.height = h + 'px'; n.style.width = w + 'px'; n.style.overflow = 'visible';
     }
     fe.style.width = w + 'px'; fe.style.height = h + 'px'; fe.setAttribute('height', h);
   } catch (_) {}
 }
+try {
+  const P = window.parent;
+  if (P.__sprigRz) P.removeEventListener('resize', P.__sprigRz);
+  P.__sprigRz = () => layout(); P.addEventListener('resize', P.__sprigRz);
+} catch (_) {}
 
 /* ---------- face and speech ---------- */
 function show(id, on) { $(id).style.display = on ? '' : 'none'; }
@@ -338,10 +353,55 @@ function setOpen(o) {
     if (!TOUCH) setTimeout(() => input.focus(), 60);
   } else { layout(); }
 }
-function toggle() { wake(); jump(); setOpen(!isOpen); }
-ch.addEventListener('click', toggle);
-$('badge').addEventListener('click', toggle);
-bubble.addEventListener('click', () => { wake(); setOpen(true); });
+function toggle() { if (justDragged) return; wake(); jump(); setOpen(!isOpen); }
+/* ---------- drag to move (the spot is remembered) ---------- */
+let drag = null, justDragged = false;
+function pp(e, inParent) {
+  if (inParent) return {x: e.clientX, y: e.clientY};
+  const r = window.frameElement.getBoundingClientRect();
+  return {x: r.left + e.clientX, y: r.top + e.clientY};
+}
+function startDrag(e) {
+  if (e.button > 0) return;
+  let box, P;
+  try { box = window.frameElement.closest('.st-key-sprig'); P = window.parent; } catch (_) { return; }
+  if (!box) return;
+  const de = P.document.documentElement, br = box.getBoundingClientRect(), st0 = pp(e, false);
+  drag = {x0: st0.x, y0: st0.y, r0: de.clientWidth - br.right, b0: de.clientHeight - br.bottom, moved: false};
+  try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+  try { P.document.addEventListener('pointermove', onPMove); P.document.addEventListener('pointerup', onUp); } catch (_) {}
+}
+function moveDrag(s) {
+  if (!drag) return;
+  const dx = s.x - drag.x0, dy = s.y - drag.y0;
+  if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+  if (!drag.moved) { drag.moved = true; document.body.classList.add('dragging'); }
+  pos = {r: drag.r0 - dx, b: drag.b0 - dy};
+  layout();
+}
+function onMove(e) { moveDrag(pp(e, false)); }
+function onPMove(e) { moveDrag(pp(e, true)); }
+function onUp() {
+  if (!drag) return;
+  if (drag.moved) {
+    justDragged = true; setTimeout(() => { justDragged = false; }, 120);
+    try {
+      const box = window.frameElement.closest('.st-key-sprig');
+      pos = {r: parseFloat(box.style.right), b: parseFloat(box.style.bottom)};
+      window.parent.localStorage.setItem('sprigPos', JSON.stringify(pos));
+    } catch (_) {}
+  }
+  document.body.classList.remove('dragging'); drag = null;
+  try { window.parent.document.removeEventListener('pointermove', onPMove); window.parent.document.removeEventListener('pointerup', onUp); } catch (_) {}
+}
+$('cw').addEventListener('pointerdown', startDrag);
+$('phead').addEventListener('pointerdown', e => { if (!e.target.closest('#pclose')) startDrag(e); });
+document.addEventListener('pointermove', onMove);
+document.addEventListener('pointerup', onUp);
+document.addEventListener('pointercancel', onUp);
+
+$('cw').addEventListener('click', toggle);   // one handler for Sprig and its chat badge (pointer capture sends the click here)
+bubble.addEventListener('click', () => { if (justDragged) return; wake(); setOpen(true); });
 $('pclose').addEventListener('click', () => setOpen(false));
 $('pform').addEventListener('submit', e => { e.preventDefault(); const v = input.value; input.value = ''; ask(v); });
 document.addEventListener('keydown', e => { lastAct = Date.now(); if (e.key === 'Escape' && isOpen) setOpen(false); });
