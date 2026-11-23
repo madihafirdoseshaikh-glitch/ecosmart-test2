@@ -588,6 +588,261 @@ def investor():
     st.caption("Illustrative figures from the project's assumptions - not financial advice.")
 
 
+
+# ------------------------------------------------------------------ Sprig's brain
+def build_chips():
+    base = ["Which idea is best?", "What does payback mean?", "Are these numbers real?", "Who made this?"]
+    if page == "overview":
+        first = ["What is this dashboard?", "How do I use it?"]
+    elif page == "investor":
+        first = ["How does the ranking work?", "How is the budget plan chosen?"]
+    else:
+        first = [f"Tell me about {R_NAMES[page]}", "How is the saving calculated?", "Which SDGs does it support?"]
+    return first + base + ["💃 Dance!"]
+
+
+def build_knowledge():
+    """Questions Sprig can answer. Numbers are live, so answers follow the inputs on screen."""
+    on = [k for k, _ in m.IDEAS if st.session_state[f"on_{k}"]]
+    nm = lambda k: f"{EMOJI[k]} {R[k]['name']}"
+    kb = []
+
+    def add(keys, answer, w=1, x=""):
+        e = {"k": keys, "a": answer, "w": w}
+        if x:
+            e["x"] = x
+        kb.append(e)
+
+    allt = lambda f: sum(R[k][f] for k in R)
+    fastest = min(R, key=lambda k: R[k]["payback"])
+    slowest = max(R, key=lambda k: R[k]["payback"])
+    biggest = max(R, key=lambda k: R[k]["net_annual"])
+    cheapest = min(R, key=lambda k: R[k]["capex"])
+    greenest = max(R, key=lambda k: R[k]["co2_t"])
+    elec, water, fee = P["g_elec_tariff"], P["g_water_tariff"], P["g_landfill_fee"]
+    kwp = P["s_spaces"] * P["s_kwp_space"]
+    cut = max(P["w_peak_base"] - P["w_peak_new"], 0.0)
+    pct = cut / P["w_peak_base"] * 100 if P["w_peak_base"] else 0.0
+
+    formula = {
+        "windows": (f"Peak cooling falls from {P['w_peak_base']:g} kW (large 5×3 m windows) to {P['w_peak_new']:g} kW "
+                    f"(optimized 3×1 m windows). {cut:g} kW × {P['w_hours']:,.0f} full-load hours = "
+                    f"{R['windows']['energy_kwh']:,.0f} kWh a year, priced at AED {elec:.2f}/kWh."),
+        "monitoring": (f"{P['m_rooms']:.0f} rooms × {P['m_kw']:g} kW × {P['m_hours']:,.0f} empty-but-running hours × "
+                       f"{P['m_eff']:.0f}% removed = {R['monitoring']['energy_kwh']:,.0f} kWh a year, at AED {elec:.2f}/kWh."),
+        "solar": (f"{P['s_spaces']:.0f} spaces × {P['s_kwp_space']:g} kWp = {kwp:,.0f} kWp, × {P['s_yield']:,.0f} kWh per kWp = "
+                  f"{R['solar']['energy_kwh']:,.0f} kWh a year, at AED {elec:.2f}/kWh."),
+        "recycling": (f"Waste of {P['r_waste']:,.0f} t a year, recycled share rising from {P['r_div_base']:.0f}% to "
+                      f"{P['r_div_new']:.0f}%, keeps {R['recycling']['waste_t']:,.1f} t out of landfill, at AED {fee:,.0f} per tonne."),
+        "irrigation": (f"{P['i_l_day']:,.0f} litres a day × {P['i_days']:.0f} days × {P['i_save']:.0f}% saved = "
+                       f"{R['irrigation']['water_m3']:,.0f} m³ a year, at AED {water:.2f}/m³."),
+    }
+    idea_keys = {
+        "windows": ["window", "shading", "shade", "glass", "daylight", "cooling", "peak cooling"],
+        "monitoring": ["monitoring", "monitor", "occupancy", "aircon", "ac", "air conditioning", "air conditioner",
+                       "empty room", "room"],
+        "solar": ["solar", "parking", "canopy", "pv", "panel", "photovoltaic", "car", "renewable",
+                  "clean energy", "clean power", "sunlight"],
+        "recycling": ["recycling", "recycle", "bin", "waste", "landfill", "garbage", "trash", "rubbish", "diversion",
+                      "diverted"],
+        "irrigation": ["irrigation", "irrigate", "water", "watering", "soil", "moisture", "plant", "garden", "grass",
+                       "landscaping"],
+    }
+    for k, _ in m.IDEAS:
+        r = R[k]
+        impact = []
+        if r["energy_kwh"] > 0:
+            impact.append(f"{r['energy_kwh']:,.0f} kWh of energy and {r['co2_t']:,.1f} t of CO₂")
+        if r["water_m3"] > 0:
+            impact.append(f"{r['water_m3']:,.0f} m³ of water")
+        if r["waste_t"] > 0:
+            impact.append(f"{r['waste_t']:,.1f} t of waste kept out of landfill")
+        note = " It has the slowest payback of the five, so part of its value is environmental." if k == slowest else \
+               " It has the fastest payback of the five." if k == fastest else ""
+        sdgs = " and ".join(str(n) for n in SDG_IDEAS[k])
+        add(idea_keys[k],
+            f"{nm(k)}: {DESCRIPTIONS[k]}\nRight now it saves about **{aed(r['annual_saving'])}** a year after tax, costs "
+            f"**{aed(r['capex'])}** (tax included) and pays for itself in **{years_text(r['payback'])}**.{note}\n"
+            f"Each year it handles {' and '.join(impact)}.\nHow it's worked out: {formula[k]}\n"
+            f"It supports SDG {sdgs}. Open it from the menu on the left to change its inputs.", w=3)
+
+    add(["hi", "hello", "hey", "hiya", "salam", "salaam", "greetings", "good morning", "good afternoon", "good evening"],
+        "Hi there! 👋 I'm Sprig. Ask me anything about the dashboard: the five ideas, savings, payback, CO₂, the SDGs, "
+        "the investor page or the team. Tap a button below to start.", w=2)
+    add(["thanks", "thank you", "thx", "cheers", "appreciate"],
+        "You're welcome! 🌱 Ask me anything else, or switch ideas on and off to watch the numbers change.", w=2)
+    add(["dance", "dancing", "boogie", "groove", "party"], "Watch this! 💃🎶 Wooo!", w=3, x="dance")
+    add(["sprig", "mascot", "who are you", "what are you", "your name", "are you ai", "are you a robot", "chatbot"],
+        "I'm Sprig 🌱, the little sprout who lives on this dashboard. I hop, dance and answer questions. I'm not a human "
+        "or a full AI chatbot: I only know this dashboard (the ideas, numbers and terms), and I can't look things up online.",
+        w=3)
+    add(["purpose", "aim", "objective", "project", "ecosmart", "smart campus", "final goal", "main goal", "the goal",
+         "goal of", "aim of", "purpose of", "what is this", "what is the dashboard", "what is it for",
+         "about the dashboard", "explain the dashboard", "what does the dashboard"],
+        f"This dashboard shows what five smart-campus ideas could save Liwa University in money, energy, water and waste. "
+        f"You can switch ideas on and off, change the inputs and compare them on the Investor page.\n"
+        f"The goal: help decision-makers test scenarios on screen before spending money. With all five ideas on and the "
+        f"current inputs, the campus saves about {allt('energy_kwh'):,.0f} kWh, {allt('co2_t'):,.1f} t of CO₂, "
+        f"{allt('water_m3'):,.0f} m³ of water and {allt('waste_t'):,.1f} t of waste a year.", w=2)
+    add(["how to use", "how do i use", "how does it work", "how do i start", "get started", "getting started", "navigate",
+         "navigation", "menu", "sidebar", "instructions", "tutorial", "guide", "help", "where do i start",
+         "use the dashboard"],
+        "Use the menu on the left to open a page: Overview, one of the five ideas, or the Investor comparison.\n"
+        "On an idea page, change its numbers in the left panel and everything updates straight away. ↺ Reset puts the "
+        "original values back. On the Overview you can switch ideas on and off to build your own plan.", w=2)
+    add(["change", "edit", "adjust", "modify", "slider", "input", "reset", "original values", "default values",
+         "defaults"],
+        "Each idea page has a left panel with number boxes and sliders for that idea (rooms, cost per bin, % of water "
+        "saved...). Change them and every number updates. The ↺ Reset button restores the original values.\n"
+        "Shared settings (tariffs, tax, CO₂ factor, years) are in the '⚙️ Tariff, tax and CO₂' box in the same panel.")
+    add(["starter", "balanced", "max impact", "build your plan", "include in plan", "switch on", "switch off", "turn on",
+         "turn off", "toggle", "your plan"],
+        f"On the Overview page each idea has an 'Include in plan' switch. The quick buttons pick a set for you: "
+        f"🌱 Starter (monitoring, irrigation, recycling), ⚖️ Balanced (windows, monitoring, recycling, irrigation) and "
+        f"🚀 Max impact (all five).\nRight now {len(on)} of 5 are on"
+        + (": " + ", ".join(R[k]["name"] for k in on) + "." if on else ".")
+        + " The 'Your plan together' numbers add up only what is switched on.", w=2)
+    add(["time machine", "jump ahead", "years ahead", "future", "25 years", "long term", "over time", "cumulative"],
+        "The Time machine slider on the Overview jumps up to 25 years ahead. It shows the money gained "
+        "(net yearly saving × years − equipment cost), the CO₂ avoided so far and the trees' worth of CO₂. "
+        "On the graph, the line crosses zero when your plan has paid for itself.", w=2)
+    add(["payback", "pays back", "pay back", "pay for itself", "pays for itself", "recover", "break even", "breakeven"],
+        f"Payback is how long an idea takes to pay for itself: equipment cost ÷ net yearly saving (the saving after tax, "
+        f"minus yearly upkeep).\nRight now the quickest is {nm(fastest)} at {years_text(R[fastest]['payback'])}, and the "
+        f"slowest is {nm(slowest)} at {years_text(R[slowest]['payback'])}.", w=2)
+    add(["net benefit", "net saving", "net annual", "annual saving", "yearly saving", "profit", "yearly return",
+         "return on", "roi", "10 year", "ten year"],
+        f"**Annual saving** = what an idea saves per year after tax.\n**Net annual saving** = annual saving minus yearly "
+        f"upkeep ({P['g_om']:g}% of equipment cost).\n**{YEARS}-year net benefit** = net annual saving × {YEARS} years − "
+        f"equipment cost.\n**Yearly return** = net annual saving ÷ equipment cost.\n"
+        f"You can change the number of years in '⚙️ Tariff, tax and CO₂'.", w=2)
+    add(["calculated", "calculate", "calculation", "formula", "work out", "computed", "method"],
+        f"Each idea works out how much it saves (kWh, m³ or tonnes), multiplies by a price (electricity AED {elec:.2f}/kWh, "
+        f"water AED {water:.2f}/m³, landfill AED {fee:,.0f}/t), adds {P['g_vat']:g}% tax, then subtracts yearly upkeep. "
+        f"Equipment cost includes tax too. Payback, net benefit and CO₂ come from those numbers.\n"
+        f"Open any idea page and the 🧾 Tariff, tax and cost tab shows every line.", w=2)
+    add(["co2", "carbon", "emission", "climate", "greenhouse", "tree", "footprint"],
+        f"CO₂ avoided = electricity saved (kWh) × {P['g_co2']:g} kg per kWh. With all five ideas on, about "
+        f"{allt('co2_t'):,.1f} t of CO₂ a year are avoided, about {allt('co2_t') * 1000 / 21:,.0f} trees' yearly uptake "
+        f"(a tree absorbs roughly 21 kg a year). Only the energy ideas (windows, monitoring, solar) add to CO₂ in this model.",
+        w=2)
+    add(["kwh", "kilowatt hour", "kilowatt", "energy", "electricity"],
+        f"kWh (kilowatt-hour) is how electricity is measured: using 1 kW for 1 hour. The price used is AED {elec:.2f} per "
+        f"kWh (change it in '⚙️ Tariff, tax and CO₂'). With all five ideas on, {allt('energy_kwh'):,.0f} kWh are saved or "
+        f"generated a year.")
+    add(["kwp", "kilowatt peak", "panel capacity", "capacity", "peak power"],
+        f"kWp (kilowatt-peak) is the most power solar panels can make in ideal sunshine. Here: {P['s_spaces']:.0f} parking "
+        f"spaces × {P['s_kwp_space']:g} kWp = {kwp:,.0f} kWp, giving about {R['solar']['energy_kwh']:,.0f} kWh a year "
+        f"({P['s_yield']:,.0f} kWh per kWp).", w=3)
+    add(["esp32", "esp", "microcontroller", "arduino", "iot", "internet of things"],
+        f"ESP32 is a small, low-cost Wi-Fi chip (a microcontroller). In Energy Monitoring, one per room is paired with a "
+        f"current sensor and an occupancy sensor. If the AC is running in an empty room, it can be switched off "
+        f"automatically. Cost here: AED {P['m_cost_room']:,.0f} per room plus AED {P['m_hub']:,.0f} for the gateway.", w=3)
+    add(["energy3d", "energy 3d", "simulation", "simulate", "simulated", "concord"],
+        f"Energy3D is free simulation software from the Concord Consortium. The team used it to compare large windows "
+        f"(5×3 m) with optimized, shaded windows (3×1 m): peak cooling falls from {P['w_peak_base']:g} kW to "
+        f"{P['w_peak_new']:g} kW, about {pct:.0f}% less. It is the only result in the dashboard confirmed by a simulation.",
+        w=3)
+    add(["real", "actual", "accurate", "accuracy", "measured", "illustrative", "placeholder", "estimate", "reliable",
+         "trust", "genuine", "fake", "made up", "source", "where do the numbers come from"],
+        "Good question! Only the **Windows & Shading** result comes from a real simulation (Energy3D). The other "
+        "numbers use illustrative inputs: costs, tariffs and tax are placeholders, not measured campus data.\n"
+        "The team's next step is to replace the estimates with measured data. You can type real quotes and official "
+        "tariffs into the left panel and everything updates.", w=3)
+    add(["tariff", "assumption", "vat", "tax", "electricity price", "water price", "water tariff", "electricity tariff",
+         "landfill fee", "rate", "price"],
+        f"Current assumptions: electricity AED {elec:.2f}/kWh, water AED {water:.2f}/m³, landfill AED {fee:,.0f}/t, "
+        f"tax {P['g_vat']:g}%, upkeep {P['g_om']:g}% of equipment cost a year, CO₂ {P['g_co2']:g} kg/kWh, analysis "
+        f"period {YEARS} years. They are illustrative placeholders. Change any of them in the '⚙️ Tariff, tax and CO₂' "
+        f"box in the left panel.", w=3)
+    add(["cost", "equipment", "capex", "expensive", "cheap", "invest", "investment", "afford", "affordable", "spend"],
+        "Equipment cost now (tax included): " + ", ".join(f"{nm(k)} {aed(R[k]['capex'])}" for k in R) +
+        f".\nCheapest to start: {nm(cheapest)}. Costs are placeholders: use real quotes for real decisions.", w=2)
+    add(["best", "fastest", "quickest", "biggest", "largest", "highest", "most", "top", "recommend", "recommended",
+         "worth", "priority", "start with", "winner", "better", "which idea", "which one"],
+        f"Right now: ⚡ fastest payback: {nm(fastest)} ({years_text(R[fastest]['payback'])}); 💰 biggest net yearly saving: "
+        f"{nm(biggest)} ({aed(R[biggest]['net_annual'])}); 🏷️ cheapest to start: {nm(cheapest)} "
+        f"({aed(R[cheapest]['capex'])}); 🌍 most CO₂ avoided: {nm(greenest)} ({R[greenest]['co2_t']:,.1f} t a year).\n"
+        f"There is no single best idea: it depends on your goal. For a low-cost start try 🌱 Starter on the Overview. "
+        f"The 💼 Investor page ranks all five your way.", w=2)
+    chosen, left = m.pick_portfolio(R, st.session_state["c_budget"])
+    add(["investor", "portfolio", "budget", "ranking", "rank", "funded", "fund", "compare", "comparison", "medal",
+         "top pick", "greedy", "per dirham"],
+        f"The 💼 Investor comparison page ranks the five ideas by what you pick (payback, {YEARS}-year benefit, yearly "
+        f"saving, yearly return or cost). Enter a budget and it funds ideas in order of yearly return per dirham until "
+        f"the money runs out, then shows what is invested, the net yearly saving and the budget left.\n"
+        f"With AED {st.session_state['c_budget']:,.0f} it currently funds: "
+        + (", ".join(nm(next(k for k in R if R[k] is r)) for r in chosen) if chosen else "nothing yet") + ".", w=3)
+    where = (f"\nThis page ({R[page]['name']}) supports SDG " + " and ".join(str(n) for n in SDG_IDEAS[page]) + "."
+             if page in SDG_IDEAS else "")
+    add(["sdg", "sustainable development", "development goal", "global goal", "un goal", "united nation"],
+        "The project supports three UN Sustainable Development Goals:\n"
+        "**SDG 9** Industry, Innovation & Infrastructure: simulation, sensors and software (windows, monitoring, the "
+        "dashboard).\n**SDG 11** Sustainable Cities & Communities: a comfortable, resilient campus (windows, solar "
+        "parking, recycling).\n**SDG 12** Responsible Consumption & Production: less energy, water and waste "
+        "(monitoring, recycling, irrigation).\nSee the SDG cards on the Overview page." + where, w=3)
+    add(["team", "student", "who made", "who built", "who created", "who designed", "who developed", "developer",
+         "author", "creator", "supervisor", "professor", "karamath", "fathima", "madiha", "faseeha", "firdose", "teacher",
+         "doctor"],
+        f"This is **EcoSmart Innovators**: {TEAM}.\nSupervisor: **{SUPERVISOR}**.\nLiwa University · 5th Sustainability "
+        f"Competition, Fall 2026–2027.", w=3)
+    add(["liwa", "university", "competition", "logo", "fall"],
+        "Liwa University is the team's university, and this dashboard was made for the 5th Sustainability Competition "
+        "(Fall 2026–2027).", w=2)
+    add(["how are you", "how r u", "whats up", "what's up", "how is it going", "how are things"],
+        "I'm doing great, thanks for asking! 🌱 Ask me about the ideas, the savings, payback, CO₂, the SDGs or the "
+        "investor page, or press 💃 Dance!", w=3)
+    add(["next step", "whats next", "what's next", "future work", "pilot", "expand", "roadmap", "improve", "improvement",
+         "upcoming", "backend", "login", "arabic", "next"],
+        "Next steps: 1) pilot in one building, 2) replace estimates with measured data, 3) expand campus-wide.\n"
+        "Later ideas: live ESP32 data through a backend, a facility-manager login, hourly charts and an Arabic/English "
+        "toggle.", w=2)
+    add(["fun fact", "elephant", "bulb", "olympic", "pool", "swimming"],
+        "The fun facts turn big numbers into everyday pictures: 💡 kWh ÷ 87.6 = 10 W LED bulbs lit all year, "
+        "🌳 CO₂ ÷ 21 kg = trees' yearly uptake, 🏊 m³ ÷ 2,500 = Olympic pools, 🐘 tonnes ÷ 6 = elephants. They are rough "
+        "approximations, just to make the numbers easier to picture.", w=3)
+    if page == "overview":
+        page_text = ("You're on the **Overview**: build your plan with the switches, see your plan's totals, the fun "
+                     "facts, the SDG cards and the Time machine.")
+    elif page == "investor":
+        page_text = ("You're on the **Investor comparison**: pick how to rank the ideas, set a budget, and see the table, "
+                     "the two charts and which ideas the budget can fund.")
+    else:
+        page_text = (f"You're on the **{R[page]['name']}** page: the top boxes show the saving, cost, payback and net "
+                     f"benefit, then the impact. Four tabs below: 📊 Before and after, 🎈 Fun facts, "
+                     f"🧾 Tariff, tax and cost, 💼 Investor view. Change inputs in the left panel.")
+    add(["this page", "what am i looking at", "explain this page", "current page", "where am i", "this screen"],
+        page_text, w=4)
+    add(["tab", "before and after", "chart", "graph", "line crosses zero"],
+        "Each idea page has four tabs: 📊 Before and after (bars comparing today with the idea), 🎈 Fun facts, "
+        "🧾 Tariff, tax and cost (how the saving is worked out, line by line) and 💼 Investor view (a payback rating and "
+        "a money-over-time graph that crosses zero when the idea has paid for itself).", w=2)
+    add(["unit", "m3", "cubic", "tonne", "ton", "aed", "dirham", "currency"],
+        "AED = UAE dirhams. kWh = kilowatt-hours of electricity. m³ = cubic metres of water (1 m³ = 1,000 litres). "
+        "t = tonnes (1 t = 1,000 kg). kWp = kilowatt-peak of solar capacity.", w=2)
+    if on:
+        sel = {k: R[k] for k in on}
+        capex = sum(r["capex"] for r in sel.values())
+        net = sum(r["net_annual"] for r in sel.values())
+        plan = (f"Your plan right now ({len(on)} of 5 ideas on: {', '.join(R[k]['name'] for k in on)}): "
+                f"**{sum(r['energy_kwh'] for r in sel.values()):,.0f} kWh**, **{sum(r['co2_t'] for r in sel.values()):,.1f} t "
+                f"CO₂**, **{sum(r['water_m3'] for r in sel.values()):,.0f} m³** of water and "
+                f"**{sum(r['waste_t'] for r in sel.values()):,.1f} t** of waste a year.\nAnnual saving "
+                f"{aed(sum(r['annual_saving'] for r in sel.values()))}, equipment {aed(capex)}, payback "
+                f"{years_text(capex / net if net > 0 else float('inf'))}, {YEARS}-year net benefit {aed(net * YEARS - capex)}.")
+    else:
+        plan = "Nothing is switched on in your plan yet. Turn ideas on in the Overview and I'll add them up for you!"
+    add(["total", "altogether", "overall", "combined", "all five", "all idea", "everything", "whole plan", "together",
+         "full plan"], plan, w=2)
+    add(["qr", "scan", "phone", "mobile", "link", "share", "url", "website"],
+        "The QR code on the team's roll-up opens this same dashboard on any phone or laptop, no app needed. "
+        "Share the link and others can try it too.", w=2)
+    add(["bug", "error", "broken", "problem", "not working", "slow", "crash", "stuck", "wrong", "issue"],
+        "Sorry about that! 🙏 Try reloading the page. If an input looks stuck, press ↺ Reset this idea's inputs in the "
+        "left panel. If it keeps happening, let the team know.", w=2)
+    return kb
+
+
 if page == "overview":
     overview()
 elif page == "investor":
@@ -598,4 +853,6 @@ else:
 st.markdown(team_footer_html(), unsafe_allow_html=True)
 
 if st.session_state["sprig_on"]:
-    sprig.sprig(**SPRIG)
+    sprig.sprig(**SPRIG, knowledge=build_knowledge(), chips=build_chips(),
+                greeting="Hi, I'm **Sprig**! 🌱 Ask me anything about this dashboard, or tap a button below. "
+                         "I can even dance 💃")
