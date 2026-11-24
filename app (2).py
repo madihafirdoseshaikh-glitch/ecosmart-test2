@@ -554,3 +554,5 @@ if st.session_state["sprig_on"]:
     except TypeError:  # an older sprig.py: still show Sprig, in English
         sprig.sprig(**{k: v for k, v in SPRIG.items() if k != "reaction"})
         st.sidebar.warning("Old sprig.py found. Upload the new sprig.py so Sprig can speak Arabic.")
+    if getattr(sprig, "MODE", "") == "still":
+        st.sidebar.caption("Sprig is in still mode: this Streamlit version blocked its animation.")

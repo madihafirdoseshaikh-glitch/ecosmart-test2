@@ -13,6 +13,7 @@ and falls asleep (tap to wake) after 45 seconds of quiet.
 Pass reaction="cheer" or "oops" to make it celebrate or wince when it appears.
 Pass lang="ar" for Arabic. Pass floating=False to draw it inside the page instead of in the bottom-right corner.
 """
+import html as _html
 import json
 
 import streamlit as st
@@ -250,19 +251,42 @@ def _page(mood, message, tips, reaction=None, lang="en"):
     data = json.dumps({"mood": mood, "message": message or "", "tips": list(tips or []),
                        "reaction": reaction or "", "lang": lang, "ui": UI[lang]})
     data = data.replace("</", "<\\/")
-    return _TEMPLATE.replace("__SVG__", _SVG).replace("__DATA__", data)
+    page = _TEMPLATE.replace("__SVG__", _SVG).replace("__DATA__", data)
+    return page.replace('<div id="msg"></div>', '<div id="msg">' + _html.escape(message or "") + "</div>")
+
+
+MODE = "none"  # how Sprig was last drawn: "iframe", "components" or "still"
+
+
+def _draw_html(html, height):
+    """Draw the animated Sprig with whichever Streamlit command this version supports."""
+    global MODE
+    if hasattr(st, "iframe"):  # newer Streamlit (st.components.v1.html is being removed)
+        try:
+            st.iframe(html, height=height)
+            MODE = "iframe"
+            return True
+        except Exception:
+            pass
+    try:  # older Streamlit
+        import streamlit.components.v1 as components
+        components.html(html, height=height)
+        MODE = "components"
+        return True
+    except Exception:
+        return False
 
 
 def sprig(mood="happy", message="", tips=None, height=215, floating=True, reaction=None, lang="en"):
     """Draw Sprig. `message` is plain text shown in the speech bubble; `tips` cycle on each click."""
+    global MODE
     mood = mood if mood in MOODS else "happy"
     html = _page(mood, message, tips, reaction, lang)
 
     def draw():
-        try:
-            import streamlit.components.v1 as components
-            components.html(html, height=height)
-        except Exception:  # animation unavailable: show a still Sprig instead
+        global MODE
+        if not _draw_html(html, height):  # animation unavailable: show a still Sprig instead
+            MODE = "still"
             st.markdown(f'<div style="width:110px">{_SVG}</div>', unsafe_allow_html=True)
             if message:
                 st.caption(message)
