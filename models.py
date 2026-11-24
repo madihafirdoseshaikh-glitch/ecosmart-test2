@@ -176,7 +176,11 @@ MODELS = {"windows": windows, "monitoring": monitoring, "solar": solar,
 
 
 def all_results(p):
-    return {key: MODELS[key](p) for key, _ in IDEAS}
+    out = {}
+    for key, _ in IDEAS:
+        out[key] = MODELS[key](p)
+        out[key]["key"] = key
+    return out
 
 
 RANKINGS = {

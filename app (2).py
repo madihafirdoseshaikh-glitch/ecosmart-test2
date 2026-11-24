@@ -2,9 +2,14 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-import i18n
-import models as m
-import sprig
+try:
+    import i18n
+    import models as m
+    import sprig
+except ImportError as _e:  # a helper file was not uploaded with the right name
+    st.error(f"A file is missing or misnamed: {_e}. Upload app.py, models.py, sprig.py and i18n.py "
+             "with exactly these names (no (1) or (2) in the name).")
+    st.stop()
 
 st.set_page_config(page_title="EcoSmart Smart Campus Dashboard", page_icon="🌿", layout="wide")
 
@@ -337,6 +342,8 @@ with st.sidebar.expander(t("exp_global")):
 
 P = {k: st.session_state[k] for k in m.DEFAULTS}
 R = m.all_results(P)
+for _k, _r in R.items():
+    _r.setdefault("key", _k)
 YEARS = P["g_years"]
 
 
@@ -542,4 +549,8 @@ else:
     idea_page(page)
 
 if st.session_state["sprig_on"]:
-    sprig.sprig(**SPRIG, lang=LANG)
+    try:
+        sprig.sprig(**SPRIG, lang=LANG)
+    except TypeError:  # an older sprig.py: still show Sprig, in English
+        sprig.sprig(**{k: v for k, v in SPRIG.items() if k != "reaction"})
+        st.sidebar.warning("Old sprig.py found. Upload the new sprig.py so Sprig can speak Arabic.")
