@@ -135,6 +135,10 @@ if "sprig_on" not in st.session_state:
     st.session_state["sprig_on"] = True
 else:
     st.session_state["sprig_on"] = st.session_state["sprig_on"]
+if "sprig_corner" not in st.session_state:
+    st.session_state["sprig_corner"] = "br"
+else:
+    st.session_state["sprig_corner"] = st.session_state["sprig_corner"]
 if "look_years" not in st.session_state:
     st.session_state["look_years"] = 10
 else:
@@ -328,6 +332,9 @@ if page in PREFIX:
     st.sidebar.button(t("btn_reset"), on_click=reset, args=(PREFIX[page],))
 
 st.sidebar.toggle(t("tg_sprig"), key="sprig_on")
+if st.session_state["sprig_on"]:
+    st.sidebar.radio(t("sprig_pos"), ["br", "bl", "tr", "tl"], horizontal=True, key="sprig_corner",
+                     format_func=lambda k: {"br": "↘", "bl": "↙", "tr": "↗", "tl": "↖"}[k])
 
 with st.sidebar.expander(t("exp_global")):
     st.number_input(t("g_elec"), min_value=0.0, step=0.01, key="g_elec_tariff")
@@ -548,9 +555,21 @@ elif page == "investor":
 else:
     idea_page(page)
 
+def sprig_qa():
+    fast = min(R.values(), key=lambda r: r["payback"])
+    big = max(R.values(), key=lambda r: r["net_annual"])
+    vals = dict(
+        fast=idea_name(fast["key"]), fast_pb=years_text(fast["payback"]),
+        big=idea_name(big["key"]), big_net=aed(big["net_annual"]),
+        capex=aed(sum(r["capex"] for r in R.values())), saving=aed(sum(r["annual_saving"] for r in R.values())),
+        co2f=f"{P['g_co2']:.2f}", tax=f"{P['g_vat']:.1f}",
+        names=("، " if AR else ", ").join(idea_name(k) for k, _ in m.IDEAS))
+    return i18n.build_qa(LANG, vals)
+
+
 if st.session_state["sprig_on"]:
     try:
-        sprig.sprig(**SPRIG, lang=LANG)
+        sprig.sprig(**SPRIG, lang=LANG, qa=sprig_qa(), corner=st.session_state["sprig_corner"])
     except TypeError:  # an older sprig.py: still show Sprig, in English
         sprig.sprig(**{k: v for k, v in SPRIG.items() if k != "reaction"})
         st.sidebar.warning("Old sprig.py found. Upload the new sprig.py so Sprig can speak Arabic.")

@@ -52,6 +52,7 @@ STR = {
     "btn_reset": ("↺ Reset this idea's inputs", "↺ إعادة ضبط مدخلات هذه الفكرة"),
     "toast_reset": ("Inputs reset! 🌱", "تمت إعادة الضبط! 🌱"),
     "tg_sprig": ("🌱 Show Sprig", "🌱 إظهار سبريغ"),
+    "sprig_pos": ("Sprig position", "موضع سبريغ"),
     "exp_global": ("⚙️ Tariff, tax and CO₂ (all ideas)", "⚙️ التعرفة والضريبة وثاني أكسيد الكربون (لكل الأفكار)"),
     "g_elec": ("Electricity tariff (AED/kWh)", "تعرفة الكهرباء (درهم/كيلوواط ساعة)"),
     "g_water": ("Water tariff (AED/m³)", "تعرفة المياه (درهم/م³)"),
@@ -307,3 +308,75 @@ def make_t(lang):
 def pick(pair, lang):
     """Choose the English or Arabic item from an (en, ar) pair."""
     return pair[1 if lang == "ar" else 0]
+
+# ---- "Ask Sprig": (chip?, question EN, question AR, answer EN, answer AR, keywords EN, keywords AR)
+# Answers may use {fast} {fast_pb} {big} {big_net} {capex} {saving} {co2f} {tax} {names}.
+QA = [
+    (True, "Which idea is best?", "ما هي أفضل فكرة؟",
+     "For the fastest payback, pick {fast} ({fast_pb}). For the biggest yearly saving, pick {big} ({big_net} a year). "
+     "Open the Investor comparison to see all five.",
+     "لأسرع استرداد اختر {fast} ({fast_pb}). ولأكبر وفر سنوي اختر {big} ({big_net} في السنة). "
+     "افتح مقارنة المستثمرين لترى الأفكار الخمس.",
+     ["best", "which idea", "top", "invest", "recommend", "fastest", "biggest"],
+     ["افضل", "استثمر", "استثمار", "اي فكره", "اسرع", "اكبر"]),
+    (True, "What is payback?", "ما هي مدة الاسترداد؟",
+     "Payback is how many years the yearly saving needs to cover the equipment cost. "
+     "We divide the equipment cost by the net yearly saving.",
+     "مدة الاسترداد هي عدد السنوات التي يحتاجها الوفر السنوي ليغطي تكلفة المعدات. "
+     "نقسم تكلفة المعدات على صافي الوفر السنوي.",
+     ["payback", "pay back", "pays for itself", "recover", "break even"],
+     ["استرداد", "تسترد", "مده", "تعادل"]),
+    (True, "How is CO₂ counted?", "كيف يُحسب ثاني أكسيد الكربون؟",
+     "We multiply the kWh saved by {co2f} kg of CO₂ per kWh. Only the energy ideas count: Windows, Monitoring and Solar.",
+     "نضرب الكيلوواط ساعة الموفَّرة في {co2f} كجم من ثاني أكسيد الكربون لكل كيلوواط ساعة. "
+     "وتُحسب أفكار الطاقة فقط: النوافذ والمراقبة والطاقة الشمسية.",
+     ["co2", "carbon", "emission", "tonne"], ["كربون", "ثاني", "انبعاث"]),
+    (True, "How do I change the numbers?", "كيف أغيّر الأرقام؟",
+     "Pick an idea in the menu on the left, then change its inputs. Everything updates straight away.",
+     "اختر فكرة من القائمة الجانبية ثم غيّر مدخلاتها. وسيتحدث كل شيء فورًا.",
+     ["change", "input", "slider", "edit", "how do i", "numbers", "use"],
+     ["غير", "مدخلات", "كيف", "استخدم", "ارقام"]),
+    (False, "What is the tax?", "ما هي الضريبة؟",
+     "A tax of {tax}% is added to the money saved and to the equipment cost. "
+     "You can change it in the Tariff, tax and CO₂ box in the sidebar.",
+     "تُضاف ضريبة بنسبة {tax}% إلى الوفر وإلى تكلفة المعدات. يمكنك تغييرها من صندوق التعرفة والضريبة في الشريط الجانبي.",
+     ["tax", "vat", "tariff", "price"], ["ضريب", "تعرفه", "سعر", "اسعار"]),
+    (False, "What are the five ideas?", "ما هي الأفكار الخمس؟",
+     "They are: {names}.", "هي: {names}.",
+     ["five", "ideas", "modules", "what are the", "list"], ["خمس", "افكار", "وحدات"]),
+    (False, "How much does it cost?", "كم تبلغ التكلفة؟",
+     "All five ideas together cost about {capex} in equipment and save about {saving} a year after tax.",
+     "تبلغ تكلفة معدات الأفكار الخمس معًا نحو {capex}، وتوفّر نحو {saving} في السنة بعد الضريبة.",
+     ["cost", "expensive", "equipment", "money", "total", "how much"], ["تكلف", "كلفه", "مال", "اجمال"]),
+    (False, "What is the time machine?", "ما هي آلة الزمن؟",
+     "It jumps ahead up to 25 years and shows the money, CO₂ and trees you would have by then.",
+     "تقفز بك إلى المستقبل حتى 25 سنة وتُظهر المال وثاني أكسيد الكربون والأشجار التي ستحصل عليها حينها.",
+     ["time machine", "future", "25", "jump"], ["الزمن", "اله", "مستقبل"]),
+    (False, "Are these numbers real?", "هل هذه الأرقام حقيقية؟",
+     "Only the Windows result comes from the Energy3D simulation. The other numbers use illustrative inputs, "
+     "not measured campus data.",
+     "نتيجة النوافذ وحدها مأخوذة من محاكاة Energy3D. أما باقي الأرقام فمدخلات توضيحية وليست بيانات مقيسة من الحرم.",
+     ["real", "accurate", "estimate", "true", "trust", "energy3d", "data"], ["حقيق", "دقيق", "تقدير", "بيانات", "صحيح"]),
+    (False, "Who are you?", "من أنت؟",
+     "I'm Sprig, a little sprout who helps you explore the dashboard!",
+     "أنا سبريغ، نبتة صغيرة تساعدك على استكشاف لوحة المعلومات!",
+     ["who", "your name", "sprig", "yourself"], ["من انت", "اسمك", "سبريغ"]),
+    (False, "Can I use Arabic?", "هل يمكنني استخدام الإنجليزية؟",
+     "Yes! Click العربية at the top of the page or in the sidebar.",
+     "نعم! اضغط على English في أعلى الصفحة أو في الشريط الجانبي.",
+     ["arabic", "language", "translate"], ["انجليزي", "english", "لغه", "ترجم"]),
+    (False, "Can I move you?", "هل يمكنني تحريكك؟",
+     "Yes! Drag me anywhere on the page, or choose a corner with Sprig position in the sidebar.",
+     "نعم! اسحبني إلى أي مكان في الصفحة، أو اختر ركنًا من «موضع سبريغ» في الشريط الجانبي.",
+     ["move", "drag", "position", "corner"], ["حرك", "تحريك", "اسحب", "موضع", "ركن"]),
+]
+
+
+def build_qa(lang, v):
+    """Return the Ask-Sprig list in one language, with live numbers filled in."""
+    i = 1 if lang == "ar" else 0
+    out = []
+    for chip, q_en, q_ar, a_en, a_ar, kw_en, kw_ar in QA:
+        q, a = (q_ar, a_ar) if i else (q_en, a_en)
+        out.append({"q": q, "a": a.format(**v), "kw": kw_en + kw_ar, "chip": chip})
+    return out

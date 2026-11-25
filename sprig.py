@@ -11,7 +11,8 @@ says a tip when clicked, shows hearts when you hover and pet it, spins on a doub
 click, gets dizzy if you click too fast, tells jokes and dances (buttons in its bubble),
 and falls asleep (tap to wake) after 45 seconds of quiet.
 Pass reaction="cheer" or "oops" to make it celebrate or wince when it appears.
-Pass lang="ar" for Arabic. Pass floating=False to draw it inside the page instead of in the bottom-right corner.
+Drag Sprig to move it (or pass corner="tl", "tr", "bl", "br"). The Ask button answers typed or tapped
+questions from the `qa` list you pass in. Pass lang="ar" for Arabic. Pass floating=False to draw it inside the page instead of in the bottom-right corner.
 """
 import html as _html
 import json
@@ -22,7 +23,9 @@ MOODS = ("happy", "excited", "worried", "sleepy")
 
 UI = {
     "en": {
-        "tip": "💡 Tip", "joke": "😄 Joke", "dance": "💃 Dance", "title": "Click me!",
+        "tip": "💡 Tip", "joke": "😄 Joke", "dance": "💃 Dance", "ask": "💬 Ask", "title": "Click me, or drag me!",
+        "ph": "Ask me something...", "send": "Send", "ask_hello": "Ask me anything about the dashboard!",
+        "idk": "Hmm, I'm not sure. Try asking about payback, CO₂, tax, cost or which idea is best!",
         "dance_msg": "Dance party!", "spin_msg": "Wheee!",
         "dizzy_msg": "Whoa... so dizzy! Please click slower.", "sleep_msg": "Zzz... tap me to wake me up!",
         "jokes": ["Why did the solar panel go to school? To get a little brighter!",
@@ -32,7 +35,9 @@ UI = {
         "love": ["Hehe, that tickles!", "Aww, thank you!", "You're the best!", "Pets make me so happy!"],
     },
     "ar": {
-        "tip": "💡 نصيحة", "joke": "😄 نكتة", "dance": "💃 ارقص", "title": "اضغط عليّ!",
+        "tip": "💡 نصيحة", "joke": "😄 نكتة", "dance": "💃 ارقص", "ask": "💬 اسأل", "title": "اضغط عليّ أو اسحبني!",
+        "ph": "اسألني شيئًا...", "send": "إرسال", "ask_hello": "اسألني أي شيء عن لوحة المعلومات!",
+        "idk": "همم، لست متأكدًا. جرّب أن تسأل عن مدة الاسترداد أو ثاني أكسيد الكربون أو الضريبة أو التكلفة أو أفضل فكرة!",
         "dance_msg": "حفلة رقص!", "spin_msg": "ييي!",
         "dizzy_msg": "واو... أشعر بالدوار! اضغط ببطء من فضلك.", "sleep_msg": "زززز... المسني لأستيقظ!",
         "jokes": ["لماذا ذهب اللوح الشمسي إلى المدرسة؟ ليصبح أكثر إشراقًا!",
@@ -43,10 +48,12 @@ UI = {
     },
 }
 
-FLOAT_CSS = """<style>
-.st-key-sprig {position: fixed; right: 14px; bottom: 6px; width: 370px; z-index: 9999;}
-.st-key-sprig iframe {border: 0; background: transparent;}
-</style>"""
+def _float_css(corner):
+    v = "top: 56px;" if corner in ("tl", "tr") else "bottom: 6px;"
+    h = "left: 14px;" if corner in ("bl", "tl") else "right: 14px;"
+    return ("<style>.st-key-sprig {position: fixed; " + v + " " + h + " width: 370px; max-width: 96vw; z-index: 9999;}"
+            " .st-key-sprig iframe {border: 0; background: transparent;}</style>")
+
 
 # Everything except the face parts that change with mood is static.
 _SVG = """<svg id="sp" viewBox="0 -8 120 140" role="img" aria-label="Sprig, a sprout-blob mascot">
@@ -77,7 +84,7 @@ _SVG = """<svg id="sp" viewBox="0 -8 120 140" role="img" aria-label="Sprig, a sp
 <path id="drop" style="display:none" d="M97 50q5 8 0 11q-5-3 0-11z" fill="#7CC7FF"/>
 </svg>"""
 
-_TEMPLATE = """<!doctype html><html><head><meta charset="utf-8"><style>
+_TEMPLATE = r"""<!doctype html><html><head><meta charset="utf-8"><style>
 html,body{margin:0;background:transparent;font-family:'Nunito','Segoe UI',system-ui,sans-serif;overflow:hidden}
 #wrap{display:flex;align-items:flex-end;justify-content:flex-end;gap:8px;height:100vh;padding:0 4px 2px 0;box-sizing:border-box}
 #bubble{position:relative;background:#fff;border:2px solid #D7EFE9;color:#0B1B3F;border-radius:18px;padding:10px 14px;
@@ -85,7 +92,7 @@ html,body{margin:0;background:transparent;font-family:'Nunito','Segoe UI',system
  cursor:pointer;transition:opacity .25s,transform .25s}
 #bubble.hide{opacity:0;transform:scale(.9);pointer-events:none}
 #bubble:after{content:"";position:absolute;right:-9px;bottom:16px;border:8px solid transparent;border-left-color:#D7EFE9;border-right:0}
-#char{width:112px;height:130px;flex-shrink:0;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;
+#char{width:112px;height:130px;flex-shrink:0;cursor:pointer;user-select:none;touch-action:none;-webkit-tap-highlight-color:transparent;
  transform-origin:50% 100%;animation:breathe 3.2s ease-in-out infinite}
 #char svg{width:100%;height:100%;overflow:visible;display:block}
 #char.hop{animation:hop .7s ease-out}
@@ -115,23 +122,40 @@ html,body{margin:0;background:transparent;font-family:'Nunito','Segoe UI',system
 .p{position:fixed;width:8px;height:8px;border-radius:2px;pointer-events:none;z-index:5;animation:fly 1s ease-out forwards}
 .p.h{width:auto;height:auto;font-size:15px;line-height:1;background:none!important}
 @keyframes fly{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(.6) rotate(200deg);opacity:0}}
-#btns{display:flex;gap:6px;margin-top:8px}
+#btns{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+#wrap.left{flex-direction:row-reverse;justify-content:flex-end}
+#wrap.left #bubble:after{right:auto;left:-9px;border:8px solid transparent;border-right-color:#D7EFE9;border-left:0}
+#wrap.top{align-items:flex-start}
+#wrap.top #bubble{margin:10px 0 0 0}
+#wrap.top #bubble:after{bottom:auto;top:16px}
+#char.grab{cursor:grab}#char.dragging{cursor:grabbing;animation:none}
+#ask{margin-top:8px}
+#chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px}
+#chips button{font:inherit;font-size:11.5px;font-weight:600;color:#0B1B3F;background:#FFF6E3;border:2px solid #FBE3B0;border-radius:999px;padding:2px 8px;cursor:pointer}
+#chips button:hover{background:#F5A623;border-color:#F5A623}
+#askrow{display:flex;gap:5px}
+#q{flex:1;min-width:0;font:inherit;font-size:13px;color:#0B1B3F;border:2px solid #CDE9E2;border-radius:999px;padding:4px 10px;outline:none}
+#q:focus{border-color:#13A08A}
+#send{font:inherit;font-size:12px;font-weight:700;color:#fff;background:#13A08A;border:0;border-radius:999px;padding:4px 10px;cursor:pointer}
 #btns button{font:inherit;font-size:12px;font-weight:700;color:#0B1B3F;background:#E8F6F3;border:2px solid #CDE9E2;border-radius:999px;
  padding:3px 9px;cursor:pointer;transition:transform .12s,background .12s}
 #btns button:hover{background:#13A08A;border-color:#13A08A;color:#fff;transform:scale(1.06)}
 .zz{animation:zz 2.2s ease-in-out infinite}
 @keyframes zz{0%{opacity:0;transform:translateY(6px)}50%{opacity:1}100%{opacity:0;transform:translateY(-6px)}}
 </style></head><body>
-<div id="wrap"><div id="bubble" role="status"><div id="msg"></div><div id="btns"><button id="bTip">💡 Tip</button><button id="bJoke">😄 Joke</button><button id="bDance">💃 Dance</button></div></div><div id="char" title="Click me!">__SVG__</div></div>
+<div id="wrap" class="__WRAPCLS__"><div id="bubble" role="status"><div id="msg"></div><div id="btns"><button id="bTip">💡 Tip</button><button id="bJoke">😄 Joke</button><button id="bDance">💃 Dance</button><button id="bAsk">💬 Ask</button></div>
+<div id="ask" style="display:none"><div id="chips"></div><div id="askrow"><input id="q" type="text" autocomplete="off"><button id="send">Send</button></div></div></div><div id="char" title="Click me!">__SVG__</div></div>
 <script>
 const D = __DATA__;
 const $ = id => document.getElementById(id);
 const bubble = $('bubble'), msg = $('msg'), ch = $('char');
 const JOKES = D.ui.jokes, LOVE = D.ui.love;
-$('bTip').textContent = D.ui.tip; $('bJoke').textContent = D.ui.joke; $('bDance').textContent = D.ui.dance;
-$('char').title = D.ui.title;
+$('bTip').textContent = D.ui.tip; $('bJoke').textContent = D.ui.joke; $('bDance').textContent = D.ui.dance; $('bAsk').textContent = D.ui.ask;
+$('q').placeholder = D.ui.ph; $('send').textContent = D.ui.send;
+
 if (D.lang === 'ar') { bubble.style.direction = 'rtl'; bubble.style.textAlign = 'right'; }
 const COLORS = ['#F5A623', '#13A08A', '#FF9DB0', '#2F7FC1', '#4DAA57'];
+let suppressClick = false;
 let mood = D.mood, base = D.mood, tipIdx = 0, jokeIdx = 0, clicks = [], petTimer = null, lastAct = Date.now();
 
 function show(id, on){ $(id).style.display = on ? '' : 'none'; }
@@ -182,6 +206,7 @@ function dizzy(){
 }
 
 ch.addEventListener('click', () => {
+  if (suppressClick) return;
   wake();
   const now = Date.now();
   clicks = clicks.filter(t => now - t < 3000); clicks.push(now);
@@ -206,6 +231,84 @@ $('bTip').addEventListener('click', () => { wake(); jump(); nextTip(); });
 $('bJoke').addEventListener('click', () => { wake(); jump(); say(JOKES[jokeIdx++ % JOKES.length]); });
 $('bDance').addEventListener('click', dance);
 
+// ---- talking to the parent page (needed for dragging and resizing); optional
+const SMALL = 215, BIG = 320;
+let P = null, host = null;
+try { P = window.parent; host = window.frameElement.closest('.st-key-sprig'); if (!P.document || !host) { P = null; host = null; } }
+catch (_) { P = null; host = null; }
+const canDrag = !!host;
+function resizeFrame(h){ try { window.frameElement.style.height = h + 'px'; } catch (_) {} }
+function applyPos(p){ host.style.left = p.left + 'px'; host.style.top = p.top + 'px'; host.style.right = 'auto'; host.style.bottom = 'auto'; }
+if (canDrag) {
+  ch.classList.add('grab'); ch.title = D.ui.title;
+  if (P.__sprigCorner !== D.corner) {
+    P.__sprigCorner = D.corner; P.__sprigPos = null;
+    host.style.left = host.style.top = host.style.right = host.style.bottom = '';
+  } else if (P.__sprigPos) applyPos(P.__sprigPos);
+  resizeFrame(SMALL);
+}
+let drag = null, moved = false;
+ch.addEventListener('pointerdown', e => {
+  if (!canDrag) return;
+  const r = host.getBoundingClientRect();
+  drag = { sx: e.screenX, sy: e.screenY, l: r.left, t: r.top }; moved = false;
+  try { ch.setPointerCapture(e.pointerId); } catch (_) {}
+});
+function dragMove(e){
+  if (!drag) return;
+  const dx = e.screenX - drag.sx, dy = e.screenY - drag.sy;
+  if (!moved && Math.abs(dx) + Math.abs(dy) < 6) return;
+  if (!moved) { moved = true; ch.classList.add('dragging'); }
+  const sr = ch.getBoundingClientRect();
+  let l = drag.l + dx, t = drag.t + dy;
+  l = Math.max(-sr.left, Math.min(P.innerWidth - sr.left - sr.width, l));
+  t = Math.max(-sr.top, Math.min(P.innerHeight - sr.top - sr.height, t));
+  P.__sprigPos = { left: l, top: t }; applyPos(P.__sprigPos);
+}
+function dragEnd(){
+  if (!drag) return;
+  drag = null; ch.classList.remove('dragging');
+  if (moved) { suppressClick = true; setTimeout(() => { suppressClick = false; }, 60); }
+}
+document.addEventListener('pointermove', dragMove); document.addEventListener('pointerup', dragEnd);
+if (canDrag) {
+  if (P.__sprigDragOff) P.__sprigDragOff();
+  P.document.addEventListener('pointermove', dragMove); P.document.addEventListener('pointerup', dragEnd);
+  P.__sprigDragOff = () => { P.document.removeEventListener('pointermove', dragMove); P.document.removeEventListener('pointerup', dragEnd); };
+}
+
+// ---- ask Sprig a question
+const QA = D.qa || [];
+function norm(s){
+  return (s || '').toLowerCase().replace(/[\u064B-\u065F\u0670]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه').replace(/[؟?!.,،:;]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function answer(text){
+  const n = ' ' + norm(text) + ' ';
+  if (n.trim() === '') return;
+  let best = null, bestScore = 0;
+  QA.forEach(item => {
+    let sc = 0;
+    item.kw.forEach(k => { const nk = norm(k); if (nk && n.indexOf(nk) >= 0) sc += nk.length > 5 ? 2 : 1; });
+    if (sc > bestScore) { bestScore = sc; best = item; }
+  });
+  wake(); jump(); say(best ? best.a : D.ui.idk);
+}
+let askOpen = false;
+function toggleAsk(open){
+  askOpen = open; $('ask').style.display = open ? '' : 'none';
+  if (canDrag) resizeFrame(open ? BIG : SMALL);
+  if (open) { say(D.ui.ask_hello); $('q').focus(); }
+}
+$('bAsk').addEventListener('click', () => { wake(); toggleAsk(!askOpen); });
+$('send').addEventListener('click', () => { answer($('q').value); $('q').value = ''; });
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter') { answer($('q').value); $('q').value = ''; } });
+QA.filter(i => i.chip).forEach(item => {
+  const b = document.createElement('button'); b.textContent = item.q;
+  b.addEventListener('click', () => { wake(); jump(); say(item.a); });
+  $('chips').appendChild(b);
+});
+
 function track(e, local){
   let ox = 0, oy = 0;
   if (!local) { try { const f = window.frameElement.getBoundingClientRect(); ox = f.left; oy = f.top; } catch (_) {} }
@@ -218,13 +321,14 @@ function track(e, local){
   if (mood === 'sleepy') wake();
 }
 document.addEventListener('mousemove', e => track(e, true));
-try {
-  const P = window.parent;
-  if (P.__sprigOff) P.__sprigOff();
-  const h = e => track(e, false);
-  P.document.addEventListener('mousemove', h);
-  P.__sprigOff = () => P.document.removeEventListener('mousemove', h);
-} catch (_) {}
+if (P) {
+  try {
+    if (P.__sprigOff) P.__sprigOff();
+    const h = e => track(e, false);
+    P.document.addEventListener('mousemove', h);
+    P.__sprigOff = () => P.document.removeEventListener('mousemove', h);
+  } catch (_) {}
+}
 
 (function blinkLoop(){
   setTimeout(() => {
@@ -246,12 +350,14 @@ else setTimeout(jump, 350);
 </script></body></html>"""
 
 
-def _page(mood, message, tips, reaction=None, lang="en"):
+def _page(mood, message, tips, reaction=None, lang="en", qa=None, corner="br"):
     lang = lang if lang in UI else "en"
     data = json.dumps({"mood": mood, "message": message or "", "tips": list(tips or []),
-                       "reaction": reaction or "", "lang": lang, "ui": UI[lang]})
+                       "reaction": reaction or "", "lang": lang, "ui": UI[lang],
+                       "qa": list(qa or []), "corner": corner})
     data = data.replace("</", "<\\/")
-    page = _TEMPLATE.replace("__SVG__", _SVG).replace("__DATA__", data)
+    cls = ("left " if corner in ("bl", "tl") else "") + ("top" if corner in ("tl", "tr") else "")
+    page = _TEMPLATE.replace("__SVG__", _SVG).replace("__DATA__", data).replace("__WRAPCLS__", cls.strip())
     return page.replace('<div id="msg"></div>', '<div id="msg">' + _html.escape(message or "") + "</div>")
 
 
@@ -277,11 +383,13 @@ def _draw_html(html, height):
         return False
 
 
-def sprig(mood="happy", message="", tips=None, height=215, floating=True, reaction=None, lang="en"):
+def sprig(mood="happy", message="", tips=None, height=320, floating=True, reaction=None, lang="en",
+          qa=None, corner="br"):
     """Draw Sprig. `message` is plain text shown in the speech bubble; `tips` cycle on each click."""
     global MODE
     mood = mood if mood in MOODS else "happy"
-    html = _page(mood, message, tips, reaction, lang)
+    corner = corner if corner in ("br", "bl", "tr", "tl") else "br"
+    html = _page(mood, message, tips, reaction, lang, qa, corner)
 
     def draw():
         global MODE
@@ -292,7 +400,7 @@ def sprig(mood="happy", message="", tips=None, height=215, floating=True, reacti
                 st.caption(message)
 
     if floating:
-        st.markdown(FLOAT_CSS, unsafe_allow_html=True)
+        st.markdown(_float_css(corner), unsafe_allow_html=True)
         with st.container(key="sprig"):
             draw()
     else:
